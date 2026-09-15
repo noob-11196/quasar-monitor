@@ -6,9 +6,10 @@ from bs4 import BeautifulSoup
 # 설정
 # ==========================================
 
-TARGET_URL = "https://api.allorigins.win/raw?url=" + requests.utils.quote("https://quasarzone.com/bbs/qb_saleinfo")
+# 빠르고 안정적인 Corsproxy 사용
+TARGET_URL = "https://corsproxy.io/?https://quasarzone.com/bbs/qb_saleinfo"
 
-# 테스트용 키워드 (알림 확인 후 원래 키워드로 변경하세요)
+# 테스트용 키워드 (알림 도착 확인 후 "RX 9070", "9070XT"로 변경하세요)
 KEYWORDS = [
     "네이버",
     "무료",
@@ -23,7 +24,8 @@ def get_posts():
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
     }
 
-    response = requests.get(TARGET_URL, headers=headers, timeout=25)
+    # 타임아웃을 10초로 줄여 딜레이를 방지합니다.
+    response = requests.get(TARGET_URL, headers=headers, timeout=10)
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "html.parser")
@@ -33,10 +35,7 @@ def get_posts():
         title = a.get_text(" ", strip=True)
         href = a["href"]
 
-        if not title:
-            continue
-
-        if "/bbs/qb_saleinfo/views/" not in href:
+        if not title or "/bbs/qb_saleinfo/views/" not in href:
             continue
 
         if not any(k.lower() in title.lower() for k in KEYWORDS):
@@ -55,11 +54,11 @@ def get_posts():
 
 def send_discord_message(message):
     if not DISCORD_WEBHOOK:
-        print("DISCORD_WEBHOOK 환경변수가 설정되지 않았습니다.")
+        print("DISCORD_WEBHOOK 환경변수가 없습니다.")
         return
 
     data = {"content": message}
-    resp = requests.post(DISCORD_WEBHOOK, json=data)
+    resp = requests.post(DISCORD_WEBHOOK, json=data, timeout=5)
     resp.raise_for_status()
 
 
@@ -72,7 +71,8 @@ def main():
         print("조건에 맞는 게시글이 없습니다.")
         return
 
-    for post in posts:
+    # 알림 도배 방지를 위해 최대 3개까지만 전송
+    for post in posts[:3]:
         msg = f"🔥 **[핫딜 알림]** {post['title']}\n🔗 {post['url']}"
         send_discord_message(msg)
         print(f"알림 전송 완료: {post['title']}")
