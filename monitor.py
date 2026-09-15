@@ -2,21 +2,27 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-# 퀘이사존 핫딜 직접 요청
-TARGET_URL = "https://quasarzone.com/bbs/qb_saleinfo"
+# ==========================================
+# 설정
+# ==========================================
 
-# 테스트용 키워드
-KEYWORDS = ["네이버", "무료", "쿠팡", "특가"]
+# 구글 번역 프록시를 이용해 퀘이사존 차단을 완벽히 우회합니다.
+TARGET_URL = "https://quasarzone-com.translate.goog/bbs/qb_saleinfo?_x_tr_sl=ko&_x_tr_tl=en&_x_tr_hl=ko"
+
+# 테스트용 키워드 (디스코드 알림 확인 후 원래 찾으시는 키워드로 변경하세요)
+KEYWORDS = [
+    "네이버",
+    "무료",
+    "쿠팡",
+    "특가"
+]
 
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
 
 def get_posts():
-    # 브라우저 직접 접속으로 위장하는 헤더
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
     }
 
     response = requests.get(TARGET_URL, headers=headers, timeout=15)
@@ -29,16 +35,24 @@ def get_posts():
         title = a.get_text(" ", strip=True)
         href = a["href"]
 
-        if not title or "/bbs/qb_saleinfo/views/" not in href:
+        if not title:
+            continue
+
+        if "/bbs/qb_saleinfo/views/" not in href:
             continue
 
         if not any(k.lower() in title.lower() for k in KEYWORDS):
             continue
 
-        if href.startswith("/"):
-            href = "https://quasarzone.com" + href
+        # 번역 주소 형태를 원래 퀘이사존 주소로 복원
+        clean_url = href.split("?")[0].replace("quasarzone-com.translate.goog", "quasarzone.com")
+        if clean_url.startswith("/"):
+            clean_url = "https://quasarzone.com" + clean_url
 
-        posts.append({"title": title, "url": href})
+        posts.append({
+            "title": title,
+            "url": clean_url
+        })
 
     return posts
 
