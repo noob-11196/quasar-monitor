@@ -6,14 +6,13 @@ from bs4 import BeautifulSoup
 # 설정
 # ==========================================
 
-# AllOrigins 프록시 서비스로 차단을 완전히 우회합니다.
 TARGET_URL = "https://api.allorigins.win/raw?url=" + requests.utils.quote("https://quasarzone.com/bbs/qb_saleinfo")
 
+# 테스트용 키워드 (알림 확인 후 원래 키워드로 변경하세요)
 KEYWORDS = [
-    "RX 9070",
-    "9070",
-    "9070XT",
-    "9070 XT"
+    "네이버",
+    "무료",
+    "쿠팡"
 ]
 
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
