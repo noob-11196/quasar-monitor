@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 
 QUASARZONE_URL = "https://quasarzone.com/bbs/qb_saleinfo"
 
+# 찾고 싶은 키워드
 KEYWORDS = [
     "RX 9070",
     "9070",
@@ -15,11 +16,12 @@ KEYWORDS = [
     "9070 XT"
 ]
 
+# Discord Webhook은 GitHub Secrets에서 가져옵니다.
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
 
 def get_posts():
-    # Cloudflare 차단을 우회하는 우회용 스크래퍼 생성
+    # Cloudflare 차단을 방지하는 scraper 생성
     scraper = cloudscraper.create_scraper(
         browser={
             'browser': 'chrome',
