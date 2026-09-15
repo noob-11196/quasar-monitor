@@ -1,7 +1,7 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright
+from curl_cffi import requests as curl_requests
 
 # ==========================================
 # 설정
@@ -20,20 +20,15 @@ DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
 
 def get_posts():
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-        )
-        page = context.new_page()
+    # Chrome 120 보안 패킷(TLS Fingerprint)을 흉내 내어 방화벽을 우회합니다.
+    response = curl_requests.get(
+        QUASARZONE_URL,
+        impersonate="chrome120",
+        timeout=15
+    )
+    response.raise_for_status()
 
-        page.goto(QUASARZONE_URL, wait_until="domcontentloaded", timeout=30000)
-        page.wait_for_timeout(3000)
-
-        html = page.content()
-        browser.close()
-
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(response.text, "html.parser")
     posts = []
 
     for a in soup.find_all("a", href=True):
