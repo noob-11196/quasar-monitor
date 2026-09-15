@@ -1,5 +1,5 @@
 import os
-import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 
 # ==========================================
@@ -8,7 +8,6 @@ from bs4 import BeautifulSoup
 
 QUASARZONE_URL = "https://quasarzone.com/bbs/qb_saleinfo"
 
-# 찾고 싶은 키워드
 KEYWORDS = [
     "RX 9070",
     "9070",
@@ -16,24 +15,20 @@ KEYWORDS = [
     "9070 XT"
 ]
 
-# Discord Webhook은 GitHub Secrets에서 가져옵니다.
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
 
 def get_posts():
-    # 퀘이사존 차단을 뚫기 위한 보안 헤더 설정
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Referer': 'https://quasarzone.com/'
-    }
-
-    response = requests.get(
-        QUASARZONE_URL,
-        headers=headers,
-        timeout=15
+    # Cloudflare 차단을 우회하는 우회용 스크래퍼 생성
+    scraper = cloudscraper.create_scraper(
+        browser={
+            'browser': 'chrome',
+            'platform': 'windows',
+            'desktop': True
+        }
     )
+
+    response = scraper.get(QUASARZONE_URL, timeout=15)
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "html.parser")
@@ -68,6 +63,7 @@ def send_discord_message(message):
         print("DISCORD_WEBHOOK 환경변수가 설정되지 않았습니다.")
         return
 
+    import requests
     data = {"content": message}
     resp = requests.post(DISCORD_WEBHOOK, json=data)
     resp.raise_for_status()
