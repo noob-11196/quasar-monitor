@@ -12,19 +12,16 @@ QUASARZONE_URL = "https://quasarzone.com/bbs/qb_saleinfo"
 KEYWORDS = [
     "RX 9070",
     "9070",
+    "9070XT",
+    "9070 XT"
 ]
 
 # Discord Webhook은 GitHub Secrets에서 가져옵니다.
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
 
-def get_posts():
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
-            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
-            "Version/17.0 Mobile/15E148 Safari/604.1"
-        )
+        headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
 
     response = requests.get(
