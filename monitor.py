@@ -1,13 +1,13 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-from curl_cffi import requests as curl_requests
 
 # ==========================================
 # 설정
 # ==========================================
 
-QUASARZONE_URL = "https://quasarzone.com/bbs/qb_saleinfo"
+# 퀘이사존 핫딜 RSS 피드 주소 (차단 없음)
+QUASARZONE_RSS_URL = "https://quasarzone.com/rss/qb_saleinfo"
 
 KEYWORDS = [
     "RX 9070",
@@ -20,52 +20,30 @@ DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
 
 def get_posts():
-    # 보안 차단을 우회하기 위한 실제 Chrome 브라우저 상세 헤더
     headers = {
-        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'accept-language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-        'referer': 'https://quasarzone.com/',
-        'sec-ch-ua': '"Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-fetch-dest': 'document',
-        'sec-fetch-mode': 'navigate',
-        'sec-fetch-site': 'same-origin',
-        'sec-fetch-user': '?1',
-        'upgrade-insecure-requests': '1',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
-
-    response = curl_requests.get(
-        QUASARZONE_URL,
-        headers=headers,
-        impersonate="chrome120",
-        timeout=15
-    )
+    
+    response = requests.get(QUASARZONE_RSS_URL, headers=headers, timeout=15)
     response.raise_for_status()
 
-    soup = BeautifulSoup(response.text, "html.parser")
+    soup = BeautifulSoup(response.text, "xml")
+    items = soup.find_all("item")
     posts = []
 
-    for a in soup.find_all("a", href=True):
-        title = a.get_text(" ", strip=True)
-        href = a["href"]
+    for item in items:
+        title = item.find("title").get_text(strip=True) if item.find("title") else ""
+        link = item.find("link").get_text(strip=True) if item.find("link") else ""
 
-        if not title:
-            continue
-
-        if "/bbs/qb_saleinfo/views/" not in href:
+        if not title or not link:
             continue
 
         if not any(k.lower() in title.lower() for k in KEYWORDS):
             continue
 
-        if href.startswith("/"):
-            href = "https://quasarzone.com" + href
-
         posts.append({
             "title": title,
-            "url": href
+            "url": link
         })
 
     return posts
