@@ -1,6 +1,7 @@
 import os
-import cloudscraper
+import requests
 from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
 # ==========================================
 # 설정
@@ -8,7 +9,6 @@ from bs4 import BeautifulSoup
 
 QUASARZONE_URL = "https://quasarzone.com/bbs/qb_saleinfo"
 
-# 찾고 싶은 키워드
 KEYWORDS = [
     "RX 9070",
     "9070",
@@ -16,24 +16,26 @@ KEYWORDS = [
     "9070 XT"
 ]
 
-# Discord Webhook은 GitHub Secrets에서 가져옵니다.
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
 
 def get_posts():
-    # Cloudflare 차단을 방지하는 scraper 생성
-    scraper = cloudscraper.create_scraper(
-        browser={
-            'browser': 'chrome',
-            'platform': 'windows',
-            'desktop': True
-        }
-    )
+    with sync_playwright() as p:
+        # 가상 브라우저(Chromium) 실행
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        )
+        page = context.new_page()
 
-    response = scraper.get(QUASARZONE_URL, timeout=15)
-    response.raise_for_status()
+        # 퀘이사존 접속 및 로딩 대기
+        page.goto(QUASARZONE_URL, wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_timeout(3000)
 
-    soup = BeautifulSoup(response.text, "html.parser")
+        html = page.content()
+        browser.close()
+
+    soup = BeautifulSoup(html, "html.parser")
     posts = []
 
     for a in soup.find_all("a", href=True):
@@ -65,7 +67,6 @@ def send_discord_message(message):
         print("DISCORD_WEBHOOK 환경변수가 설정되지 않았습니다.")
         return
 
-    import requests
     data = {"content": message}
     resp = requests.post(DISCORD_WEBHOOK, json=data)
     resp.raise_for_status()
