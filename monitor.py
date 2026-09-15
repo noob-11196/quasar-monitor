@@ -6,8 +6,8 @@ from bs4 import BeautifulSoup
 # 설정
 # ==========================================
 
-# 퀘이사존 핫딜 RSS 피드 주소 (차단 없음)
-QUASARZONE_RSS_URL = "https://quasarzone.com/rss/qb_saleinfo"
+# 프록시 서비스를 거쳐 IP 차단을 우회합니다.
+TARGET_URL = "https://corsproxy.io/?https://quasarzone.com/bbs/qb_saleinfo"
 
 KEYWORDS = [
     "RX 9070",
@@ -21,29 +21,34 @@ DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
 def get_posts():
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
     }
-    
-    response = requests.get(QUASARZONE_RSS_URL, headers=headers, timeout=15)
+
+    response = requests.get(TARGET_URL, headers=headers, timeout=20)
     response.raise_for_status()
 
-    soup = BeautifulSoup(response.text, "xml")
-    items = soup.find_all("item")
+    soup = BeautifulSoup(response.text, "html.parser")
     posts = []
 
-    for item in items:
-        title = item.find("title").get_text(strip=True) if item.find("title") else ""
-        link = item.find("link").get_text(strip=True) if item.find("link") else ""
+    for a in soup.find_all("a", href=True):
+        title = a.get_text(" ", strip=True)
+        href = a["href"]
 
-        if not title or not link:
+        if not title:
+            continue
+
+        if "/bbs/qb_saleinfo/views/" not in href:
             continue
 
         if not any(k.lower() in title.lower() for k in KEYWORDS):
             continue
 
+        if href.startswith("/"):
+            href = "https://quasarzone.com" + href
+
         posts.append({
             "title": title,
-            "url": link
+            "url": href
         })
 
     return posts
