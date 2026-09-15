@@ -6,8 +6,8 @@ from bs4 import BeautifulSoup
 # 설정
 # ==========================================
 
-# 프록시 서비스를 거쳐 IP 차단을 우회합니다.
-TARGET_URL = "https://corsproxy.io/?https://quasarzone.com/bbs/qb_saleinfo"
+# AllOrigins 프록시 서비스로 차단을 완전히 우회합니다.
+TARGET_URL = "https://api.allorigins.win/raw?url=" + requests.utils.quote("https://quasarzone.com/bbs/qb_saleinfo")
 
 KEYWORDS = [
     "RX 9070",
@@ -24,7 +24,7 @@ def get_posts():
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
     }
 
-    response = requests.get(TARGET_URL, headers=headers, timeout=20)
+    response = requests.get(TARGET_URL, headers=headers, timeout=25)
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "html.parser")
