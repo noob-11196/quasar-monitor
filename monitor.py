@@ -1,20 +1,16 @@
-import requests
-
-# 복사해둔 디스코드 웹후크 URL을 아래 큰따옴표 안에 직접 붙여넣으세요!
-DISCORD_WEBHOOK = "여기에_디스코드_웹후크_URL을_붙여넣으세요"
 import os
 import requests
 from bs4 import BeautifulSoup
 
-# 1. 디스코드 웹후크 URL (큰따옴표 안에 웹후크 주소를 붙여넣으세요)
-DISCORD_WEBHOOK = "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL_HERE"
+# ⬇️ 아래 큰따옴표("") 안에 복사한 디스코드 웹후크 URL을 붙여넣으세요!
+DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1549372299986083910/optPeZzfIdwRajEhfjdBWlK4J1P4bXe5VMUoXgMDbzWapEdKuc8rQP8n_Oi3tTgFR2YL"
 
-# 2. 감지할 키워드 목록
+# 감지할 키워드 목록
 KEYWORDS = ["9070", "9070XT", "RX9070", "9070 XT"]
 
 
 def send_discord_message(message):
-    if "YOUR_WEBHOOK_URL_HERE" in DISCORD_WEBHOOK or not DISCORD_WEBHOOK:
+    if "여기에_실제_주소를_붙여넣으세요" in DISCORD_WEBHOOK or not DISCORD_WEBHOOK:
         print("❌ ERROR: DISCORD_WEBHOOK 주소를 올바르게 입력해주세요.")
         return False
 
@@ -63,9 +59,11 @@ def get_posts():
 
 def main():
     print("🚀 디스코드 연동 테스트 진행 중...")
-    
-    # 1. 우선 디스코드 연동 테스트 알림 발송
-    test_success = send_discord_message("🔔 **[알림 연동 완료]** 퀘이사존 핫딜 크롤러가 정상 작동 중입니다!")
+
+    # 1. 디스코드 연동 테스트 알림 발송
+    test_success = send_discord_message(
+        "🔔 **[알림 연동 완료]** 퀘이사존 핫딜 크롤러가 정상 작동 중입니다!"
+    )
     if test_success:
         print("✅ 디스코드 테스트 알림 전송 성공!")
 
@@ -76,26 +74,6 @@ def main():
     for post in posts[:3]:
         msg = f"🔥 **[핫딜 감지]** {post['title']}\n🔗 {post['url']}"
         send_discord_message(msg)
-
-
-if __name__ == "__main__":
-    main()
-
-
-def main():
-    print("🚀 디스코드 알림 테스트 시작...")
-    
-    if "여기에" in DISCORD_WEBHOOK or not DISCORD_WEBHOOK:
-        print("❌ ERROR: DISCORD_WEBHOOK에 디스코드 주소를 직접 넣고 저장해주세요.")
-        return
-
-    try:
-        data = {"content": "🔔 **[테스트 알림]** 연동 성공! 알림이 정상 작동합니다."}
-        resp = requests.post(DISCORD_WEBHOOK, json=data, timeout=5)
-        resp.raise_for_status()
-        print("✅ 디스코드 알림 전송 성공!")
-    except Exception as e:
-        print(f"❌ 전송 실패: {e}")
 
 
 if __name__ == "__main__":
