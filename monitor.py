@@ -6,16 +6,31 @@ from bs4 import BeautifulSoup
 DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1549372299986083910/optPeZzfIdwRajEhfjdBWlK4J1P4bXe5VMUoXgMDbzWapEdKuc8rQP8n_Oi3tTgFR2YL"
 
 # 감지할 키워드 목록
+# 감지할 키워드 목록 (PC 견적 맞춤 핫딜 감지)
 KEYWORDS = [
-    "9070",
-    "9070XT",
-    "RX9070",
-    "9070 XT",
-    "5070",
-    "5070Ti",
-    "5070 Ti",
-    "RTX5070",
+    # --- [GPU] 기존 모니터링 대상 ---
+    "9070", "9070XT", "RX9070", "9070 XT",
+    "5070", "5070Ti", "5070 Ti", "RTX5070",
+
+    # --- [CPU] AMD Ryzen 7 7800X3D ---
+    "7800X3D", "78003D", "7800 X3D",
+
+    # --- [쿨러] LQ360 ULTRA ---
+    "LQ360",
+
+    # --- [메인보드] GIGABYTE B850M AORUS ELITE ---
+    "B850M", "B850", "어엘", "AORUS ELITE",
+
+    # --- [RAM] DDR5 6000 CL30 ---
+    "6000 CL30", "CL30",
+
+    # --- [파워] SuperFlower 850W ATX3.1 ---
+    "850F14GE", "LEADEX III", "리덱스", "슈퍼플라워", "SuperFlower",
+
+    # --- [케이스 & 팬] CH270 / ARCTIC P12 ---
+    "CH270", "P12 PWM", "ARCTIC P12"
 ]
+
 
 def send_discord_message(message):
     if "여기에_실제_주소를_붙여넣으세요" in DISCORD_WEBHOOK or not DISCORD_WEBHOOK:
