@@ -6,8 +6,16 @@ from bs4 import BeautifulSoup
 DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1549372299986083910/optPeZzfIdwRajEhfjdBWlK4J1P4bXe5VMUoXgMDbzWapEdKuc8rQP8n_Oi3tTgFR2YL"
 
 # 감지할 키워드 목록
-KEYWORDS = ["9070", "9070XT", "RX9070", "9070 XT"]
-
+KEYWORDS = [
+    "9070",
+    "9070XT",
+    "RX9070",
+    "9070 XT",
+    "5070",
+    "5070Ti",
+    "5070 Ti",
+    "RTX5070",
+]
 
 def send_discord_message(message):
     if "여기에_실제_주소를_붙여넣으세요" in DISCORD_WEBHOOK or not DISCORD_WEBHOOK:
