@@ -2,49 +2,45 @@ import os
 from bs4 import BeautifulSoup
 import requests
 
-# 테스트용 키워드 (알림 도착 확인 후 "RX 9070", "9070XT" 등으로 변경하세요)
-KEYWORDS = ["네이버", "쿠팡", "지마켓", "할인", "특가", "스팀"]
-
+KEYWORDS = ["네이버", "쿠팡", "지마켓", "할인", "특가", "스팀", "무료", "글"]
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
 
 def get_posts():
     if not os.path.exists("html_content.html"):
-        print("❌ HTML 파일을 찾을 수 없습니다.")
+        print("❌ html_content.html 파일이 존재하지 않습니다.")
         return []
 
     with open("html_content.html", "r", encoding="utf-8") as f:
         html = f.read()
 
+    print(f"📄 HTML 파일 크기: {len(html)} bytes")
+    
+    # HTML 시작 부분 300자 출력하여 Cloudflare 차단 페이지인지 확인
+    print("--- [다운로드된 HTML 일부 내용] ---")
+    print(html[:300].strip())
+    print("-----------------------------------")
+
     soup = BeautifulSoup(html, "html.parser")
     posts = []
 
-    # 퀘이사존 핫딜 목록의 제목 영역(subject-link)을 직접 조준
-    title_elements = soup.select("a.subject-link, a[href*='/bbs/qb_saleinfo/views/']")
+    # 전체 링크 태그 탐색
+    all_links = soup.find_all("a")
+    print(f"🔎 전체 <a> 태그 개수: {len(all_links)}")
 
-    for a in title_elements:
+    for a in all_links:
         href = a.get("href", "")
-        if "/bbs/qb_saleinfo/views/" not in href:
-            continue
-
-        # 제목 텍스트 가져오기 (태그 안의 불필요한 공백 제거)
         title = a.get_text(" ", strip=True)
-        if not title or len(title) < 2:
-            continue
 
-        # 키워드 포함 여부 검사
-        if not any(k.lower() in title.lower() for k in KEYWORDS):
-            continue
+        if "/bbs/qb_saleinfo/views/" in href:
+            clean_url = href
+            if clean_url.startswith("/"):
+                clean_url = "https://quasarzone.com" + clean_url
 
-        # URL 풀 주소 생성
-        clean_url = href
-        if clean_url.startswith("/"):
-            clean_url = "https://quasarzone.com" + clean_url
+            if not any(p["url"] == clean_url for p in posts):
+                posts.append({"title": title, "url": clean_url})
 
-        # 중복 제거
-        if not any(p["url"] == clean_url for p in posts):
-            posts.append({"title": title, "url": clean_url})
-
+    print(f"🎯 추출된 전체 핫딜 게시글 수: {len(posts)}")
     return posts
 
 
@@ -59,15 +55,13 @@ def send_discord_message(message):
 
 
 def main():
-    print("🚀 HTML 파싱 시작...")
+    print("🚀 HTML 분석 진행 중...")
     posts = get_posts()
-    print(f"📌 검색된 게시글 수: {len(posts)}")
 
     if not posts:
-        print("조건에 맞는 게시글이 없습니다.")
+        print(" 조건에 맞는 게시글이 없습니다.")
         return
 
-    # 테스트를 위해 검색된 게시글 중 최대 3개 전송
     for post in posts[:3]:
         msg = f"🔥 **[핫딜 알림]** {post['title']}\n🔗 {post['url']}"
         send_discord_message(msg)
