@@ -6,8 +6,7 @@ DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
 def send_discord_message(message):
     if not DISCORD_WEBHOOK:
-        print("❌ ERROR: DISCORD_WEBHOOK 비밀값이 설정되지 않았습니다.")
-        return
+        raise ValueError("DISCORD_WEBHOOK Secrets가 설정되지 않았습니다.")
 
     data = {"content": message}
     resp = requests.post(DISCORD_WEBHOOK, json=data, timeout=5)
