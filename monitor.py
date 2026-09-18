@@ -1,13 +1,10 @@
 import os
 import re
-import cloudscraper
+import requests
 from bs4 import BeautifulSoup
 
 # 디스코드 웹후크 URL (GitHub Secrets의 DISCORD_WEBHOOK에서 가져옴)
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK")
-
-# URL 설정 (퀘이사존 알뜰구매 게시판)
-TARGET_URL = "https://quasarzone.com/bbs/qb_saleinfo"
 
 # ---------------------------------------------------------
 # [타겟 품목 및 목표 가격 설정 (원 기준)]
@@ -80,21 +77,15 @@ def extract_price(title):
     return None
 
 def check_sale_info():
-    scraper = cloudscraper.create_scraper(
-        browser={
-            'browser': 'chrome',
-            'platform': 'windows',
-            'desktop': True
-        }
-    )
-    
-    response = scraper.get(TARGET_URL)
-    if response.status_code != 200:
-        print(f"페이지를 불러오는데 실패했습니다. 상태 코드: {response.status_code}")
+    # curl 단계에서 다운로드한 html 파일 읽기
+    try:
+        with open("html_content.html", "r", encoding="utf-8") as f:
+            html = f.read()
+    except FileNotFoundError:
+        print("오류: html_content.html 파일을 찾을 수 없습니다.")
         return
 
-    soup = BeautifulSoup(response.text, "html.parser")
-    
+    soup = BeautifulSoup(html, "html.parser")
     links = soup.find_all("a", href=re.compile(r"/bbs/qb_saleinfo/views/\d+"))
     
     if not links:
@@ -123,13 +114,13 @@ def check_sale_info():
                 
                 if max_price is None or price is None or price <= max_price:
                     print(f"[감지 성공] 키워드: {keyword} | 제목: {title}")
-                    send_discord_message(scraper, title, full_link, price, max_price)
+                    send_discord_message(title, full_link, price, max_price)
                     found_count += 1
                     break
 
     print(f"검사 완료: 총 {found_count}개의 핫딜 알림을 전송했습니다.")
 
-def send_discord_message(scraper, title, link, price, max_price):
+def send_discord_message(title, link, price, max_price):
     if not DISCORD_WEBHOOK_URL:
         print("디스코드 웹후크 URL이 설정되지 않았습니다.")
         return
@@ -142,7 +133,7 @@ def send_discord_message(scraper, title, link, price, max_price):
     }
     
     try:
-        res = scraper.post(DISCORD_WEBHOOK_URL, json=message)
+        res = requests.post(DISCORD_WEBHOOK_URL, json=message)
         if res.status_code not in [200, 204]:
             print(f"디스코드 전송 실패. 응답 코드: {res.status_code}")
     except Exception as e:
