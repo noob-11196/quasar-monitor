@@ -63,12 +63,12 @@ TARGET_ITEMS = {
     "G.SKILL": None,
 }
 
-def extract_price(title):
-    man_match = re.search(r'(\d+(?:\.\d+)?)\s*만\s*원?', title)
+def extract_price(text):
+    man_match = re.search(r'(\d+(?:\.\d+)?)\s*만\s*원?', text)
     if man_match:
         return int(float(man_match.group(1)) * 10000)
         
-    won_match = re.search(r'([\d,]+)\s*원', title)
+    won_match = re.search(r'([\d,]+)\s*원', text)
     if won_match:
         price_str = won_match.group(1).replace(',', '')
         if price_str.isdigit():
@@ -77,7 +77,6 @@ def extract_price(title):
     return None
 
 def check_sale_info():
-    # curl 단계에서 다운로드한 html 파일 읽기
     try:
         with open("html_content.html", "r", encoding="utf-8") as f:
             html = f.read()
@@ -86,31 +85,42 @@ def check_sale_info():
         return
 
     soup = BeautifulSoup(html, "html.parser")
-    links = soup.find_all("a", href=re.compile(r"/bbs/qb_saleinfo/views/\d+"))
+    
+    # 퀘이사존 게시글 태그 탐색 (모든 뷰 링크 수집)
+    links = soup.select("a[href*='/bbs/qb_saleinfo/views/']")
     
     if not links:
         print("게시글을 가져오지 못했습니다.")
         return
 
-    print(f"총 {len(links)}개의 링크 탐색 완료. 키워드 검사 시작...")
+    print(f"총 {len(links)}개의 게시글 링크 탐색 완료. 키워드 검사 시작...")
     
     found_count = 0
     visited_links = set()
 
     for link_tag in links:
-        title = link_tag.get_text(strip=True)
         href = link_tag.get("href", "")
-        
-        if href in visited_links or len(title) < 3:
+        if href in visited_links:
             continue
         visited_links.add(href)
+
+        # 제목 추출
+        title_tag = link_tag.select_one("span.ellipsis-with-reply-cnt") or link_tag
+        title = title_tag.get_text(strip=True)
+
+        if len(title) < 3:
+            continue
 
         full_link = "https://quasarzone.com" + href if href.startswith("/") else href
         title_upper = title.upper()
 
+        # 부모 행(tr)에서 가격 정보 추출 시도
+        parent_tr = link_tag.find_parent("tr")
+        price_text = parent_tr.get_text() if parent_tr else title
+
         for keyword, max_price in TARGET_ITEMS.items():
             if keyword.upper() in title_upper:
-                price = extract_price(title)
+                price = extract_price(price_text)
                 
                 if max_price is None or price is None or price <= max_price:
                     print(f"[감지 성공] 키워드: {keyword} | 제목: {title}")
