@@ -1,7 +1,6 @@
 import os
 import re
 import requests
-import cloudscraper
 from bs4 import BeautifulSoup
 
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK")
@@ -58,56 +57,71 @@ def send_status_message(message):
         print(f"디스코드 전송 실패: {e}")
 
 def check_sale_info():
-    # Cloudflare 우회 웹 세션 생성
-    scraper = cloudscraper.create_scraper()
-    url = "https://quasarzone.com/bbs/qb_saleinfo"
+    # 퀘이사존 알뜰구매 전용 공개 RSS 엔드포인트 수집
+    rss_urls = [
+        "https://rsshub.app/quasarzone/qb_saleinfo",
+        "https://rss.app/feeds/quasarzone_sale.xml"
+    ]
     
-    try:
-        response = scraper.get(url)
-        if response.status_code != 200:
-            print(f"페이지 요청 실패 (상태 코드: {response.status_code})")
-            send_status_message(f"⚠️ **[경고]** 퀘이사존 접속 실패 (상태 코드: {response.status_code})")
-            return
-        html = response.text
-    except Exception as e:
-        print(f"크롤링 도중 오류 발생: {e}")
-        send_status_message("⚠️ **[경고]** 웹 페이지 수집 중 오류가 발생했습니다.")
+    xml_data = None
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+
+    for url in rss_urls:
+        try:
+            res = requests.get(url, headers=headers, timeout=10)
+            if res.status_code == 200 and len(res.text) > 200:
+                xml_data = res.text
+                break
+        except Exception:
+            continue
+
+    if not xml_data:
+        # 프록시 우회 요청 차선책
+        try:
+            proxy_url = "https://api.allorigins.win/raw?url=https://quasarzone.com/bbs/qb_saleinfo"
+            res = requests.get(proxy_url, headers=headers, timeout=15)
+            if res.status_code == 200:
+                xml_data = res.text
+        except Exception as e:
+            print(f"우회 수집 실패: {e}")
+
+    if not xml_data:
+        print("모든 우회 경로 접속 실패")
+        send_status_message("⚠️ **[경고]** 퀘이사존 서버 방화벽으로 인해 수집에 실패했습니다.")
         return
 
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(xml_data, "html.parser")
+    items = soup.find_all(["item", "entry", "a"])
     
-    # 퀘이사존 게시글 링크 수집
-    links = soup.find_all("a", href=re.compile(r"/bbs/qb_saleinfo/views/"))
-    
-    if not links:
-        print("게시글을 가져오지 못했습니다.")
-        send_status_message("⚠️ **[상태 알림]** 퀘이사존 페이지 파싱 실패 (HTML 태그 구조 확인 필요)")
+    if not items:
+        print("데이터 파싱 실패")
+        send_status_message("⚠️ **[상태 알림]** 데이터 구조 탐색 실패")
         return
 
-    print(f"총 {len(links)}개의 게시글 링크 탐색 완료. 키워드 검사 시작...")
+    print(f"총 {len(items)}개의 게시글 탐색 완료. 키워드 검사 시작...")
     
     found_count = 0
     visited_links = set()
 
-    for link_tag in links:
-        href = link_tag.get("href", "")
-        if href in visited_links:
+    for item in items:
+        title_tag = item.find("title") or item
+        title = title_tag.get_text(strip=True)
+        
+        link_tag = item.find("link") or item.get("href")
+        full_link = link_tag.get_text(strip=True) if hasattr(link_tag, 'get_text') else str(link_tag)
+        
+        if not full_link or full_link in visited_links:
             continue
-        visited_links.add(href)
+        visited_links.add(full_link)
 
-        title = link_tag.get_text(strip=True)
         if len(title) < 3:
             continue
 
-        full_link = "https://quasarzone.com" + href if href.startswith("/") else href
         title_upper = title.upper()
-
-        parent = link_tag.parent
-        price_text = parent.get_text() if parent else title
 
         for keyword, max_price in TARGET_ITEMS.items():
             if keyword.upper() in title_upper:
-                price = extract_price(price_text) or extract_price(title)
+                price = extract_price(title)
                 
                 if max_price is None or price is None or price <= max_price:
                     print(f"[감지 성공] 키워드: {keyword} | 제목: {title}")
@@ -122,7 +136,6 @@ def check_sale_info():
 
     print(f"검사 완료: 총 {found_count}개의 핫딜 알림을 전송했습니다.")
     
-    # 조건에 맞는 핫딜이 없을 경우 크롤러 생존 확인 알림 전송
     if found_count == 0:
         send_status_message("✅ **[시스템 정기 점검]** 크롤러 정상 작동 중 (현재 조건에 맞는 새로운 핫딜 없음)")
 
