@@ -45,7 +45,21 @@ TARGET_ITEMS = {
     "SuperFlower": None,
     "CH270": None,
     "P12 PWM": None,
-    "ARCTIC P12": None
+    "ARCTIC P12": None    # --- 새로 추가할 키워드 (그래픽카드 & 램 계열) ---
+    "RTX": None,
+    "지포스": None,
+    "라데온": None,
+    "RX": None,
+    "그래픽카드": None,
+    "RAM": None,
+    "DDR4": None,
+    "DDR5": None,
+    "시금치": None,
+    "클레브": None,
+    "팀그룹": None,
+    "커세어": None,
+    "G.SKILL": None,
+
 }
 
 def extract_price(title):
