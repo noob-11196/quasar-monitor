@@ -1,4 +1,4 @@
-Name: Hot Deal Crawler
+name: Hot Deal Crawler
 
 on:
   schedule:
@@ -17,18 +17,12 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Fetch Webpage via Curl
-        run: |
-          curl -s -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" \
-          -H "Accept-Language: ko-KR,ko;q=0.9" \
-          "https://quasarzone.com/bbs/qb_saleinfo" > html_content.html
-
       - name: Install dependencies
         run: |
           pip install requests beautifulsoup4 cloudscraper
 
       - name: Run script
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           python monitor.py
