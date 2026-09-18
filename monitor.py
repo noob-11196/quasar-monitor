@@ -93,18 +93,21 @@ def check_sale_info():
         return
 
     soup = BeautifulSoup(response.text, "html.parser")
-    posts = soup.select("div.market-type-list tbody tr")
+    
+    # 퀘이사존 알뜰구매 게시판 실제 게시글 목록 선택자
+    posts = soup.select("div.market-info-type-list div.market-info-list-cont")
 
     for post in posts:
-        title_tag = post.select_one("span.ellipsis-with-type-line")
-        link_tag = post.select_one("a.subject-link")
+        # 제목 및 링크 요소 찾기
+        link_tag = post.select_one("p.tit a.subject-link")
 
-        if not title_tag or not link_tag:
+        if not link_tag:
             continue
 
-        title = title_tag.get_text(strip=True)
+        title = link_tag.get_text(strip=True)
         title_upper = title.upper()
-        link = "https://quasarzone.com" + link_tag["href"]
+        href = link_tag.get("href", "")
+        link = "https://quasarzone.com" + href if href.startswith("/") else href
 
         # 키워드 및 가격 검사
         for keyword, max_price in TARGET_ITEMS.items():
