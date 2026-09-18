@@ -68,20 +68,17 @@ def check_sale_info():
             )
             page = context.new_page()
             
-            # 퀘이사존 알뜰구매 페이지 이동
-            page.goto("https://quasarzone.com/bbs/qb_saleinfo", wait_until="networkidle", timeout=30000)
+            # networkidle 대신 domcontentloaded 사용하여 타임아웃 방지
+            page.goto("https://quasarzone.com/bbs/qb_saleinfo", wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(3000)
             
             html = page.content()
             browser.close()
     except Exception as e:
         print(f"Playwright 브라우저 로딩 오류: {e}")
-        send_status_message("⚠️ **[경고]** 브라우저 로딩 중 오류가 발생했습니다.")
         return
 
     soup = BeautifulSoup(html, "html.parser")
-    
-    # 게시글 링크 검색 (다양한 퀘이사존 HTML 구조 대응)
     links = soup.select("a.subject-link, a[href*='/views/'], a[href*='qb_saleinfo']")
     
     valid_posts = []
@@ -92,7 +89,6 @@ def check_sale_info():
         if not href or href in visited_links:
             continue
         
-        # 실제 게시물 상세 페이지 경로만 추출
         if "/views/" in href or "qb_saleinfo" in href:
             title = a.get_text(strip=True)
             if len(title) > 3:
@@ -102,8 +98,7 @@ def check_sale_info():
                 valid_posts.append((title, full_link, parent_text))
 
     if not valid_posts:
-        print("게시글을 가져오지 못했습니다.")
-        send_status_message("⚠️ **[상태 알림]** 퀘이사존 페이지 파싱 실패 (게시글 탐색 불가)")
+        print("게시글을 가져오지 못했거나 검색된 조건이 없습니다.")
         return
 
     print(f"총 {len(valid_posts)}개의 게시글 수집 완료. 키워드 검사 시작...")
@@ -129,9 +124,7 @@ def check_sale_info():
                     break
 
     print(f"검사 완료: 총 {found_count}개의 핫딜 알림을 전송했습니다.")
-    
-    if found_count == 0:
-        send_status_message("✅ **[시스템 정기 점검]** 크롤러 정상 작동 중 (현재 조건에 맞는 새로운 핫딜 없음)")
+    # 조건에 맞는 핫딜이 없을 때는 메시지를 전송하지 않도록 정기 점검 메세지 전송 로직 삭제됨 (디스코드 스팸 방지)
 
 if __name__ == "__main__":
     check_sale_info()
