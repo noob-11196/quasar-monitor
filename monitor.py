@@ -69,7 +69,7 @@ def check_sale_info():
             page = context.new_page()
             
             # 퀘이사존 알뜰구매 페이지 이동
-            page.goto("https://quasarzone.com/bbs/qb_saleinfo", wait_until="domcontentloaded", timeout=30000)
+            page.goto("https://quasarzone.com/bbs/qb_saleinfo", wait_until="networkidle", timeout=30000)
             page.wait_for_timeout(3000)
             
             html = page.content()
@@ -80,33 +80,38 @@ def check_sale_info():
         return
 
     soup = BeautifulSoup(html, "html.parser")
-    links = soup.find_all("a", href=re.compile(r"/bbs/qb_saleinfo/views/"))
     
-    if not links:
-        print("게시글을 가져오지 못했습니다.")
-        send_status_message("⚠️ **[상태 알림]** 퀘이사존 접속 또는 파싱 실패")
-        return
-
-    print(f"총 {len(links)}개의 게시글 링크 탐색 완료. 키워드 검사 시작...")
+    # 게시글 링크 검색 (다양한 퀘이사존 HTML 구조 대응)
+    links = soup.select("a.subject-link, a[href*='/views/'], a[href*='qb_saleinfo']")
     
-    found_count = 0
+    valid_posts = []
     visited_links = set()
 
-    for link_tag in links:
-        href = link_tag.get("href", "")
-        if href in visited_links:
+    for a in links:
+        href = a.get("href", "")
+        if not href or href in visited_links:
             continue
-        visited_links.add(href)
+        
+        # 실제 게시물 상세 페이지 경로만 추출
+        if "/views/" in href or "qb_saleinfo" in href:
+            title = a.get_text(strip=True)
+            if len(title) > 3:
+                visited_links.add(href)
+                full_link = "https://quasarzone.com" + href if href.startswith("/") else href
+                parent_text = a.parent.get_text() if a.parent else title
+                valid_posts.append((title, full_link, parent_text))
 
-        title = link_tag.get_text(strip=True)
-        if len(title) < 3:
-            continue
+    if not valid_posts:
+        print("게시글을 가져오지 못했습니다.")
+        send_status_message("⚠️ **[상태 알림]** 퀘이사존 페이지 파싱 실패 (게시글 탐색 불가)")
+        return
 
-        full_link = "https://quasarzone.com" + href if href.startswith("/") else href
+    print(f"총 {len(valid_posts)}개의 게시글 수집 완료. 키워드 검사 시작...")
+    
+    found_count = 0
+
+    for title, full_link, price_text in valid_posts:
         title_upper = title.upper()
-
-        parent = link_tag.parent
-        price_text = parent.get_text() if parent else title
 
         for keyword, max_price in TARGET_ITEMS.items():
             if keyword.upper() in title_upper:
