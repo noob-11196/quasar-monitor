@@ -1,6 +1,6 @@
 import os
 import re
-import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 
 # 디스코드 웹후크 URL (GitHub Secrets에서 가져옴)
@@ -67,7 +67,6 @@ TARGET_ITEMS = {
 }
 
 def extract_price(title):
-    """제목에서 가격(숫자)을 추출하는 함수"""
     man_match = re.search(r'(\d+(?:\.\d+)?)\s*만\s*원?', title)
     if man_match:
         return int(float(man_match.group(1)) * 10000)
@@ -81,22 +80,26 @@ def extract_price(title):
     return None
 
 def check_sale_info():
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-    }
+    # Cloudflare 차단 우회 우회용 스크래퍼 생성
+    scraper = cloudscraper.create_scraper(
+        browser={
+            'browser': 'chrome',
+            'platform': 'windows',
+            'desktop': True
+        }
+    )
     
-    response = requests.get(TARGET_URL, headers=headers)
+    response = scraper.get(TARGET_URL)
     if response.status_code != 200:
         print(f"페이지를 불러오는데 실패했습니다. 상태 코드: {response.status_code}")
         return
 
     soup = BeautifulSoup(response.text, "html.parser")
     
-    # 퀘이사존 내 게시글 상세 페이지 링크들만 광범위하게 수집 (/bbs/qb_saleinfo/views/...)
     links = soup.find_all("a", href=re.compile(r"/bbs/qb_saleinfo/views/\d+"))
     
     if not links:
-        print("게시글을 가져오지 못했습니다. (태그 구조 변경 가능성)")
+        print("게시글을 가져오지 못했습니다.")
         return
 
     print(f"총 {len(links)}개의 링크 탐색 완료. 키워드 검사 시작...")
@@ -108,7 +111,6 @@ def check_sale_info():
         title = link_tag.get_text(strip=True)
         href = link_tag.get("href", "")
         
-        # 중복 링크 제외 및 짧은 제목 제외
         if href in visited_links or len(title) < 3:
             continue
         visited_links.add(href)
@@ -116,20 +118,19 @@ def check_sale_info():
         full_link = "https://quasarzone.com" + href if href.startswith("/") else href
         title_upper = title.upper()
 
-        # 키워드 및 가격 검사
         for keyword, max_price in TARGET_ITEMS.items():
             if keyword.upper() in title_upper:
                 price = extract_price(title)
                 
                 if max_price is None or price is None or price <= max_price:
                     print(f"[감지 성공] 키워드: {keyword} | 제목: {title}")
-                    send_discord_message(title, full_link, price, max_price)
+                    send_discord_message(scraper, title, full_link, price, max_price)
                     found_count += 1
                     break
 
     print(f"검사 완료: 총 {found_count}개의 핫딜 알림을 전송했습니다.")
 
-def send_discord_message(title, link, price, max_price):
+def send_discord_message(scraper, title, link, price, max_price):
     if not DISCORD_WEBHOOK_URL:
         print("디스코드 웹후크 URL이 설정되지 않았습니다.")
         return
@@ -142,7 +143,7 @@ def send_discord_message(title, link, price, max_price):
     }
     
     try:
-        res = requests.post(DISCORD_WEBHOOK_URL, json=message)
+        res = scraper.post(DISCORD_WEBHOOK_URL, json=message)
         if res.status_code not in [200, 204]:
             print(f"디스코드 전송 실패. 응답 코드: {res.status_code}")
     except Exception as e:
