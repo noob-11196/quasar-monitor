@@ -1,4 +1,4 @@
-name: Hot Deal Crawler
+Name: Hot Deal Crawler
 
 on:
   schedule:
@@ -25,10 +25,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests beautifulsoup4
+          pip install requests beautifulsoup4 cloudscraper
 
       - name: Run script
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           python monitor.py
