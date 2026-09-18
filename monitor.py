@@ -2,6 +2,7 @@ import os
 import re
 import requests
 from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK")
 
@@ -57,71 +58,59 @@ def send_status_message(message):
         print(f"디스코드 전송 실패: {e}")
 
 def check_sale_info():
-    # 퀘이사존 알뜰구매 전용 공개 RSS 엔드포인트 수집
-    rss_urls = [
-        "https://rsshub.app/quasarzone/qb_saleinfo",
-        "https://rss.app/feeds/quasarzone_sale.xml"
-    ]
-    
-    xml_data = None
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-
-    for url in rss_urls:
-        try:
-            res = requests.get(url, headers=headers, timeout=10)
-            if res.status_code == 200 and len(res.text) > 200:
-                xml_data = res.text
-                break
-        except Exception:
-            continue
-
-    if not xml_data:
-        # 프록시 우회 요청 차선책
-        try:
-            proxy_url = "https://api.allorigins.win/raw?url=https://quasarzone.com/bbs/qb_saleinfo"
-            res = requests.get(proxy_url, headers=headers, timeout=15)
-            if res.status_code == 200:
-                xml_data = res.text
-        except Exception as e:
-            print(f"우회 수집 실패: {e}")
-
-    if not xml_data:
-        print("모든 우회 경로 접속 실패")
-        send_status_message("⚠️ **[경고]** 퀘이사존 서버 방화벽으로 인해 수집에 실패했습니다.")
+    html = ""
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                locale="ko-KR"
+            )
+            page = context.new_page()
+            
+            # 퀘이사존 알뜰구매 페이지 이동
+            page.goto("https://quasarzone.com/bbs/qb_saleinfo", wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(3000)
+            
+            html = page.content()
+            browser.close()
+    except Exception as e:
+        print(f"Playwright 브라우저 로딩 오류: {e}")
+        send_status_message("⚠️ **[경고]** 브라우저 로딩 중 오류가 발생했습니다.")
         return
 
-    soup = BeautifulSoup(xml_data, "html.parser")
-    items = soup.find_all(["item", "entry", "a"])
+    soup = BeautifulSoup(html, "html.parser")
+    links = soup.find_all("a", href=re.compile(r"/bbs/qb_saleinfo/views/"))
     
-    if not items:
-        print("데이터 파싱 실패")
-        send_status_message("⚠️ **[상태 알림]** 데이터 구조 탐색 실패")
+    if not links:
+        print("게시글을 가져오지 못했습니다.")
+        send_status_message("⚠️ **[상태 알림]** 퀘이사존 접속 또는 파싱 실패")
         return
 
-    print(f"총 {len(items)}개의 게시글 탐색 완료. 키워드 검사 시작...")
+    print(f"총 {len(links)}개의 게시글 링크 탐색 완료. 키워드 검사 시작...")
     
     found_count = 0
     visited_links = set()
 
-    for item in items:
-        title_tag = item.find("title") or item
-        title = title_tag.get_text(strip=True)
-        
-        link_tag = item.find("link") or item.get("href")
-        full_link = link_tag.get_text(strip=True) if hasattr(link_tag, 'get_text') else str(link_tag)
-        
-        if not full_link or full_link in visited_links:
+    for link_tag in links:
+        href = link_tag.get("href", "")
+        if href in visited_links:
             continue
-        visited_links.add(full_link)
+        visited_links.add(href)
 
+        title = link_tag.get_text(strip=True)
         if len(title) < 3:
             continue
 
+        full_link = "https://quasarzone.com" + href if href.startswith("/") else href
         title_upper = title.upper()
+
+        parent = link_tag.parent
+        price_text = parent.get_text() if parent else title
 
         for keyword, max_price in TARGET_ITEMS.items():
             if keyword.upper() in title_upper:
-                price = extract_price(title)
+                price = extract_price(price_text) or extract_price(title)
                 
                 if max_price is None or price is None or price <= max_price:
                     print(f"[감지 성공] 키워드: {keyword} | 제목: {title}")
