@@ -3,7 +3,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 
-# 디스코드 웹후크 URL (GitHub Secrets의 DISCORD_WEBHOOK에서 가져옴)
+# 디스코드 웹후크 URL
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK")
 
 # ---------------------------------------------------------
@@ -76,21 +76,33 @@ def extract_price(text):
             
     return None
 
+def send_status_message(message):
+    if not DISCORD_WEBHOOK_URL:
+        print("디스코드 웹후크 URL이 설정되지 않았습니다.")
+        return
+    try:
+        requests.post(DISCORD_WEBHOOK_URL, json={"content": message})
+    except Exception as e:
+        print(f"디스코드 전송 실패: {e}")
+
 def check_sale_info():
     try:
         with open("html_content.html", "r", encoding="utf-8") as f:
             html = f.read()
     except FileNotFoundError:
         print("오류: html_content.html 파일을 찾을 수 없습니다.")
+        send_status_message("⚠️ **[경고]** HTML 파일을 읽을 수 없어 모니터링이 중단되었습니다.")
         return
 
     soup = BeautifulSoup(html, "html.parser")
     
-    # 퀘이사존 게시글 태그 탐색 (모든 뷰 링크 수집)
-    links = soup.select("a[href*='/bbs/qb_saleinfo/views/']")
+    # 퀘이사존 게시글 링크 추출 (경로에 views가 포함된 모든 <a> 태그)
+    all_a_tags = soup.find_all("a", href=True)
+    links = [a for a in all_a_tags if "/bbs/qb_saleinfo/views/" in a["href"]]
     
     if not links:
         print("게시글을 가져오지 못했습니다.")
+        send_status_message("⚠️ **[상태 알림]** 퀘이사존 페이지 파싱 실패 (HTML 태그 확인 필요)")
         return
 
     print(f"총 {len(links)}개의 게시글 링크 탐색 완료. 키워드 검사 시작...")
@@ -104,50 +116,38 @@ def check_sale_info():
             continue
         visited_links.add(href)
 
-        # 제목 추출
-        title_tag = link_tag.select_one("span.ellipsis-with-reply-cnt") or link_tag
-        title = title_tag.get_text(strip=True)
-
+        # 게시글 제목 추출
+        title = link_tag.get_text(strip=True)
         if len(title) < 3:
             continue
 
         full_link = "https://quasarzone.com" + href if href.startswith("/") else href
         title_upper = title.upper()
 
-        # 부모 행(tr)에서 가격 정보 추출 시도
-        parent_tr = link_tag.find_parent("tr")
-        price_text = parent_tr.get_text() if parent_tr else title
+        # 부모 요소를 탐색하여 가격 정보 추출
+        parent = link_tag.parent
+        price_text = parent.get_text() if parent else title
 
         for keyword, max_price in TARGET_ITEMS.items():
             if keyword.upper() in title_upper:
-                price = extract_price(price_text)
+                price = extract_price(price_text) or extract_price(title)
                 
                 if max_price is None or price is None or price <= max_price:
                     print(f"[감지 성공] 키워드: {keyword} | 제목: {title}")
-                    send_discord_message(title, full_link, price, max_price)
+                    
+                    price_info = f"💰 감지 가격: {price:,}원" if price else "💰 가격 정보 미기재 (제목 참조)"
+                    target_info = f" (목표가: {max_price:,}원 이하)" if max_price else ""
+                    
+                    msg = f"🚨 **대박 핫딜 감지!**\n**제목**: {title}\n{price_info}{target_info}\n🔗 [게시글 바로가기]({full_link})"
+                    send_status_message(msg)
                     found_count += 1
                     break
 
     print(f"검사 완료: 총 {found_count}개의 핫딜 알림을 전송했습니다.")
-
-def send_discord_message(title, link, price, max_price):
-    if not DISCORD_WEBHOOK_URL:
-        print("디스코드 웹후크 URL이 설정되지 않았습니다.")
-        return
-
-    price_info = f"💰 감지 가격: {price:,}원" if price else "💰 가격 정보 미기재 (제목 직접 확인 필요)"
-    target_info = f" (목표가: {max_price:,}원 이하)" if max_price else ""
-
-    message = {
-        "content": f"🚨 **대박 핫딜 감지!**\n**제목**: {title}\n{price_info}{target_info}\n🔗 [게시글 바로가기]({link})"
-    }
     
-    try:
-        res = requests.post(DISCORD_WEBHOOK_URL, json=message)
-        if res.status_code not in [200, 204]:
-            print(f"디스코드 전송 실패. 응답 코드: {res.status_code}")
-    except Exception as e:
-        print(f"디스코드 전송 중 에러 발생: {e}")
+    # 핫딜이 하나도 안 잡혔을 때 크롤러 생존 확인 알림 전송
+    if found_count == 0:
+        send_status_message("✅ **[시스템 정기 점검]** 크롤러 정상 작동 중 (현재 조건에 맞는 새로운 핫딜 없음)")
 
 if __name__ == "__main__":
     check_sale_info()
